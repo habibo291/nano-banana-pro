@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nano Banana Pro - AI 画图</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+        .card {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        .row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        button {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+        }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .result {
+            margin-top: 30px;
+            text-align: center;
+        }
+        .result img {
+            max-width: 100%;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        .loading {
+            display: none;
+            margin: 20px 0;
+        }
+        .loading.active {
+            display: block;
+        }
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .error {
+            color: #e74c3c;
+            background: #fdf2f2;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+        }
+        .success {
+            color: #27ae60;
+            background: #f0fff4;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+        }
+        .settings-toggle {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .settings-toggle a {
+            color: #667eea;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+        .settings {
+            display: none;
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .settings.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 Nano Banana Pro</h1>
+        
+        <div class="card">
+            <div class="settings-toggle">
+                <a onclick="toggleSettings()">⚙️ API 设置</a>
+            </div>
+            
+            <div class="settings" id="settings">
+                <div class="form-group">
+                    <label>API 地址</label>
+                    <input type="text" id="apiUrl" placeholder="https://api.example.com/v1/images/generations">
+                </div>
+                <div class="form-group">
+                    <label>API 密钥</label>
+                    <input type="password" id="apiKey" placeholder="sk-...">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>图像描述</label>
+                <textarea id="prompt" placeholder="描述你想要生成的图像，例如：一只穿着宇航服的猫咪在月球上"></textarea>
+            </div>
+
+            <div class="row">
+                <div class="form-group">
+                    <label>尺寸</label>
+                    <select id="size">
+                        <option value="1024x1024">正方形 (1024×1024)</option>
+                        <option value="1024x1792">竖版 (1024×1792)</option>
+                        <option value="1792x1024">横版 (1792×1024)</option>
+                        <option value="512x512">小图 (512×512)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>风格</label>
+                    <select id="style">
+                        <option value="vivid">鲜艳 (Vivid)</option>
+                        <option value="natural">自然 (Natural)</option>
+                    </select>
+                </div>
+            </div>
+
+            <button onclick="generate()" id="generateBtn">🚀 生成图像</button>
+
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p style="margin-top: 15px; color: #666;">正在生成中，请稍候...</p>
+            </div>
+
+            <div id="result"></div>
+        </div>
+    </div>
+
+    <script>
+        // 从 localStorage 加载设置
+        document.getElementById('apiUrl').value = localStorage.getItem('nano_api_url') || '';
+        document.getElementById('apiKey').value = localStorage.getItem('nano_api_key') || '';
+
+        function toggleSettings() {
+            document.getElementById('settings').classList.toggle('show');
+        }
+
+        async function generate() {
+            const apiUrl = document.getElementById('apiUrl').value.trim();
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const prompt = document.getElementById('prompt').value.trim();
+            const size = document.getElementById('size').value;
+            const style = document.getElementById('style').value;
+            const resultDiv = document.getElementById('result');
+            const loadingDiv = document.getElementById('loading');
+            const btn = document.getElementById('generateBtn');
+
+            // 验证
+            if (!apiUrl || !apiKey) {
+                resultDiv.innerHTML = '<div class="error">请先填写 API 地址和密钥（点击上方"API 设置"）</div>';
+                document.getElementById('settings').classList.add('show');
+                return;
+            }
+            if (!prompt) {
+                resultDiv.innerHTML = '<div class="error">请输入图像描述</div>';
+                return;
+            }
+
+            // 保存设置
+            localStorage.setItem('nano_api_url', apiUrl);
+            localStorage.setItem('nano_api_key', apiKey);
+
+            // UI 状态
+            btn.disabled = true;
+            loadingDiv.classList.add('active');
+            resultDiv.innerHTML = '';
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`
+                    },
+                    body: JSON.stringify({
+                        model: 'dall-e-3',
+                        prompt: prompt,
+                        n: 1,
+                        size: size,
+                        style: style,
+                        response_format: 'url'
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.data && data.data[0]) {
+                    const imageUrl = data.data[0].url;
+                    const revisedPrompt = data.data[0].revised_prompt;
+                    
+                    resultDiv.innerHTML = `
+                        <div class="success">✅ 生成成功！</div>
+                        ${revisedPrompt ? `<p style="margin: 10px 0; color: #666; font-size: 14px;">优化后的描述：${revisedPrompt}</p>` : ''}
+                        <img src="${imageUrl}" alt="生成的图像" onclick="downloadImage('${imageUrl}')" style="cursor: pointer;">
+                        <p style="margin-top: 10px; color: #666; font-size: 14px;">点击图片可查看原图</p>
+                    `;
+                } else if (data.error) {
+                    resultDiv.innerHTML = `<div class="error">❌ 错误：${data.error.message || JSON.stringify(data.error)}</div>`;
+                } else {
+                    resultDiv.innerHTML = `<div class="error">❌ 未知错误：${JSON.stringify(data)}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ 请求失败：${error.message}</div>`;
+            } finally {
+                btn.disabled = false;
+                loadingDiv.classList.remove('active');
+            }
+        }
+
+        function downloadImage(url) {
+            window.open(url, '_blank');
+        }
+
+        // Enter 键生成
+        document.getElementById('prompt').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && e.ctrlKey) {
+                generate();
+            }
+        });
+    </script>
+</body>
+</html>
